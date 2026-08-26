@@ -14,15 +14,13 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import fish.alice.openvelov.data.auth.AuthRepository
 import fish.alice.openvelov.data.auth.AuthViewModel
-import fish.alice.openvelov.ui.screens.home.HomeScreen
 import fish.alice.openvelov.ui.screens.login.LoginScreen
+import fish.alice.openvelov.ui.screens.main.MainScreen
 import fish.alice.openvelov.ui.screens.onboarding.OnboardingScreen
 import fish.alice.openvelov.ui.screens.onboarding.PermissionScreen
 import fish.alice.openvelov.ui.screens.splash.SplashScreen
 import fish.alice.openvelov.utils.hasAllPermissions
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private const val DURATION = 300
@@ -72,7 +70,7 @@ fun AppNavHost(
                 }
             })
         }
-        composable<Home> { HomeScreen( onMissingPermissions = { navController.navigate(Permissions) }) }
+        composable<Home> { MainScreen(onMissingPermissions = { navController.navigate(Permissions) }) }
         composable<Login> {
             LoginScreen(onLoginSuccess = {
                 navController.navigate(Home) {

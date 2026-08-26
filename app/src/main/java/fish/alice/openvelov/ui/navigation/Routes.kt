@@ -11,3 +11,7 @@ import kotlinx.serialization.Serializable
 @Serializable object Permissions
 
 @Serializable object Splash
+
+@Serializable object MapTab
+
+@Serializable object ProfileTab

@@ -127,6 +127,7 @@ class AuthRepository(
                 }
             }
             writeState(state)
+            println("Fresh access token: $token")
             token
         } catch (e: AuthorizationException) {
             logout()

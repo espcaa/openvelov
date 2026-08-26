@@ -19,4 +19,8 @@ class AuthViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch { authRepo.logout() }
     }
+
+    fun get_token() {
+        viewModelScope.launch { authRepo.getFreshAccessToken() }
+    }
 }
