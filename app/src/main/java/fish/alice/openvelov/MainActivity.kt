@@ -13,6 +13,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import dagger.hilt.android.AndroidEntryPoint
 import fish.alice.openvelov.ui.navigation.AppNavHost
 import fish.alice.openvelov.ui.navigation.Onboarding
+import fish.alice.openvelov.ui.navigation.Splash
 import fish.alice.openvelov.ui.theme.OpenvelovTheme
 
 @AndroidEntryPoint
@@ -25,7 +26,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 ) { paddingValues ->
                     AppNavHost(
-                        startDestination = Onboarding,
+                        startDestination = Splash,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }

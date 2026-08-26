@@ -7,3 +7,7 @@ import kotlinx.serialization.Serializable
 @Serializable object Home
 
 @Serializable object Login
+
+@Serializable object Permissions
+
+@Serializable object Splash

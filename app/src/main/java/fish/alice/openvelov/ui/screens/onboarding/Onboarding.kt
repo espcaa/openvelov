@@ -11,8 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-@Composable fun WelcomePage(onContinue: () -> Unit) {
-
+@Composable
+fun OnboardingScreen(onNext: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
         verticalArrangement = Arrangement.Center
     ) {
         Text(text = "OpenVelov")
-        Button(onClick = onContinue) {
+        Button(onClick = onNext) {
             Text(text = "Continue")
         }
     }
