@@ -1,7 +1,11 @@
 package fish.alice.openvelov.ui.maps
 
 import android.content.Context
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,50 +13,69 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import org.maplibre.android.MapLibre
-import org.maplibre.android.camera.CameraPosition
-import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.Style
+import fish.alice.openvelov.data.remote.BikesApi
+import fish.alice.openvelov.data.remote.StationDto
+import fish.alice.openvelov.data.remote.StationsApi
+import kotlinx.coroutines.launch
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.map.MapOptions
+import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.Position
 import javax.inject.Inject
+
+private const val DEFAULT_LATITUDE = 45.750000
+private const val DEFAULT_LONGITUDE = 4.850000
+private const val DEFAULT_ZOOM = 12.0
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val stationsApi: StationsApi,
 ) : ViewModel() {
     var isMapLoaded by mutableStateOf(false)
+
+    var stations by mutableStateOf<List<StationDto>>(emptyList())
         private set
 
-    fun onMapReady(map: MapLibreMap) {
-        map.uiSettings.apply {
-            isCompassEnabled = false
-            isLogoEnabled = false
-            isAttributionEnabled = false
-        }
-        map.setStyle(Style.Builder().fromUri(OPENFREEMAP_LIBERTY)) {
-            isMapLoaded = true
+    var lastCamera by mutableStateOf(CameraPosition(
+        target = Position(DEFAULT_LONGITUDE, DEFAULT_LATITUDE),
+        zoom = DEFAULT_ZOOM
+    ))
+
+    fun loadStations() {
+        viewModelScope.launch {
+            try {
+                stations = stationsApi.stations()
+            } catch (e: Exception) {
+                println("Failed to load stations: ${e.message}")
+            }
         }
     }
+
 }
 
 private const val OPENFREEMAP_LIBERTY = "https://tiles.openfreemap.org/styles/liberty"
@@ -61,35 +84,59 @@ private const val OPENFREEMAP_LIBERTY = "https://tiles.openfreemap.org/styles/li
 fun MapLibreView(
     modifier: Modifier = Modifier,
     viewModel: MapViewModel = hiltViewModel(),
-    startTarget: LatLng = LatLng(45.750000, 4.850000),
-    startZoom: Double = 12.0,
 ) {
+
     val context = LocalContext.current
 
-    remember { MapLibre.getInstance(context); true }
-
-    val mapView = remember {
-        MapView(context).apply {
-            getMapAsync { map ->
-                map.cameraPosition = CameraPosition.Builder()
-                    .target(startTarget)
-                    .zoom(startZoom)
-                    .build()
-                viewModel.onMapReady(map)
-            }
+    LaunchedEffect(viewModel.isMapLoaded) {
+        val activity = context as? ComponentActivity ?: return@LaunchedEffect
+        val style : SystemBarStyle
+ 
+        if (viewModel.isMapLoaded) {
+            style = SystemBarStyle.light(
+                scrim = android.graphics.Color.TRANSPARENT,
+                darkScrim = android.graphics.Color.TRANSPARENT
+            )
+        } else {
+            style = SystemBarStyle.auto(
+                lightScrim = android.graphics.Color.TRANSPARENT,
+                darkScrim = android.graphics.Color.TRANSPARENT
+            )
         }
+
+        activity.enableEdgeToEdge(statusBarStyle = style)
     }
 
-    BindMapViewLifecycle(mapView)
+    val camera = rememberCameraState(firstPosition = viewModel.lastCamera)
+    LaunchedEffect(camera.position) { viewModel.lastCamera = camera.position }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
     ) {
-        AndroidView(
-            modifier = modifier
-                .fillMaxSize(),
-            factory = { mapView }
+        MaplibreMap(
+            baseStyle = BaseStyle.Uri(OPENFREEMAP_LIBERTY),
+            modifier = modifier,
+            cameraState = camera,
+            onMapLoadFinished = {
+                viewModel.isMapLoaded = true
+                viewModel.loadStations()
+            },
+            overlay = MapOverlay {
+                viewModel.stations.forEach { station ->
+                    val pos = Position(
+                        station.location.longitude,
+                        station.location.latitude
+                    )
+                    Box(
+                        modifier = Modifier
+                            .placedAt(pos, Alignment.Center)
+                            .size(16.dp)
+                            .clip(MaterialShapes.Burst.toShape())
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
         )
 
         if (!viewModel.isMapLoaded) {
@@ -109,28 +156,3 @@ fun MapLibreView(
     }
 }
 
-
-@Composable
-private fun BindMapViewLifecycle(mapView: MapView) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, mapView) {
-        mapView.onCreate(null)
-
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onStop()
-            mapView.onDestroy()
-        }
-    }
-}

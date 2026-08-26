@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -21,6 +23,13 @@ android {
         manifestPlaceholders["appAuthRedirectScheme"] = "fish.alice.openvelov"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val props = Properties().apply {
+            rootProject.file("local.properties").inputStream().use { load(it) }
+        }
+        buildConfigField("String", "VELOV_CLIENT_KEY", "\"${props.getProperty("velovClientKey")}\"")
+        buildConfigField("String", "VELOV_REFRESH_TOKEN", "\"${props.getProperty("velovRefreshToken")}\"")
+
     }
 
     buildTypes {
@@ -36,6 +45,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -77,6 +87,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation(libs.maplibre.android)
+    implementation(libs.maplibre.compose)
     implementation(libs.androidx.material3.adaptive.navigation.suite)
+    runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-android:0.15.0")
 }

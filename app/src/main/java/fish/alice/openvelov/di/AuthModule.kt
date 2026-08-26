@@ -7,6 +7,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import fish.alice.openvelov.data.auth.AuthRepository
+import fish.alice.openvelov.data.auth.UserTokenSource
+import fish.alice.openvelov.data.auth.WebTokenSource
 import net.openid.appauth.AuthorizationService
 import javax.inject.Singleton
 
@@ -23,4 +25,13 @@ object AuthModule {
         @ApplicationContext context: Context,
         authService: AuthorizationService,
     ): AuthRepository = AuthRepository(context, authService)
+
+    @Provides @Singleton
+    fun provideWebTokenSource(): WebTokenSource = WebTokenSource()
+
+    @Provides @Singleton
+    fun provideUserTokenSource(
+        repo: AuthRepository,
+        authService: AuthorizationService,
+    ): UserTokenSource = UserTokenSource(repo, authService)
 }

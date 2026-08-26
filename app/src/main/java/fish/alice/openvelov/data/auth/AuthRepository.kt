@@ -41,6 +41,7 @@ class AuthRepository(
     private val _logoutEvents = MutableSharedFlow<Unit>()
     val logoutEvents = _logoutEvents.asSharedFlow()
 
+    private val cipher = TokenCipher()
     private val issuer = "https://iam.cyclocity.fr/realms/vls-default".toUri()
     private val clientId = "vls-android-lyon"
     private val redirectUri = "https://velov.grandlyon.com/openid_connect_login".toUri()
@@ -49,16 +50,33 @@ class AuthRepository(
     private var authState: String = ""
 
     val isLoggedIn: Flow<Boolean> = context.authDataStore.data.map { prefs ->
-        prefs[AUTH_STATE_KEY]?.let { AuthState.jsonDeserialize(it).isAuthorized } ?: false
+        prefs[AUTH_STATE_KEY]?.let {
+            try {
+                val state = AuthState.jsonDeserialize(cipher.decrypt(it))
+                state.isAuthorized && state.authorizationServiceConfiguration != null
+            } catch (_: Exception) {
+                false
+            }
+        } ?: false
     }
 
-    private suspend fun readState(): AuthState {
-        val json = context.authDataStore.data.first()[AUTH_STATE_KEY]
-        return if (json != null) AuthState.jsonDeserialize(json) else AuthState()
+    suspend fun currentState(): AuthState? = readState().takeIf { it?.isAuthorized ?: false }
+
+    suspend fun persist(state: AuthState) = writeState(state)
+
+    private suspend fun readState(): AuthState? {
+        val stored = context.authDataStore.data.first()[AUTH_STATE_KEY] ?: return null
+        return try {
+            AuthState.jsonDeserialize(cipher.decrypt(stored)).takeIf {
+                it.authorizationServiceConfiguration != null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private suspend fun writeState(state: AuthState) {
-        context.authDataStore.edit { it[AUTH_STATE_KEY] = state.jsonSerializeString() }
+        context.authDataStore.edit { it[AUTH_STATE_KEY] = cipher.encrypt(state.jsonSerializeString()) }
     }
 
     private suspend fun fetchConfig(): AuthorizationServiceConfiguration =
@@ -105,7 +123,8 @@ class AuthRepository(
 
         val tokenResp = performTokenRequest(request)
 
-        val state = readState().apply { update(tokenResp, null) }
+        val state = AuthState(config)
+        state.update(tokenResp, null)
         writeState(state)
     }
 
@@ -118,18 +137,24 @@ class AuthRepository(
         }
 
     suspend fun getFreshAccessToken(): String {
-        val state = readState()
+        val state = readState() ?: run {
+            logout()
+            throw RuntimeException("User is not logged in or auth state is invalid")
+        }
+
         return try {
             val token = suspendCancellableCoroutine { cont ->
                 state.performActionWithFreshTokens(authService) { accessToken, _, ex ->
-                    if (accessToken != null) cont.resume(accessToken)
-                    else cont.resumeWithException(ex ?: RuntimeException("no valid token"))
+                    if (accessToken != null) {
+                        cont.resume(accessToken)
+                    } else {
+                        cont.resumeWithException(ex ?: RuntimeException("Failed to acquire fresh token"))
+                    }
                 }
             }
             writeState(state)
-            println("Fresh access token: $token")
             token
-        } catch (e: AuthorizationException) {
+        } catch (e: Exception) {
             logout()
             throw e
         }

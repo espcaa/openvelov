@@ -21,6 +21,12 @@ class AuthViewModel @Inject constructor(
     }
 
     fun get_token() {
-        viewModelScope.launch { authRepo.getFreshAccessToken() }
+        viewModelScope.launch {
+            try {
+                authRepo.getFreshAccessToken()
+            } catch (e: Exception) {
+                println("Token refresh failed: ${e.message}")
+            }
+        }
     }
 }

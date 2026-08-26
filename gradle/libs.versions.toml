@@ -18,12 +18,12 @@ retrofit = "3.0.0"
 okhttp = "5.5.0"
 kotlinxSerialization = "1.11.0"
 datastore = "1.2.1"
-maplibre = "13.5.1"
+maplibre = "0.15.0"
 material3 = "1.5.0-alpha26"
 
 [libraries]
 androidx-material3-adaptive-navigation-suite = { module = "androidx.compose.material3:material3-adaptive-navigation-suite" }
-maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "0.15.0" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
