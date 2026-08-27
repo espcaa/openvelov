@@ -20,9 +20,12 @@ import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +40,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fish.alice.openvelov.data.remote.BikesApi
 import fish.alice.openvelov.data.remote.StationDto
 import fish.alice.openvelov.data.remote.StationsApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.forEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
@@ -46,6 +57,7 @@ import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 private const val DEFAULT_LATITUDE = 45.750000
 private const val DEFAULT_LONGITUDE = 4.850000
@@ -58,18 +70,36 @@ class MapViewModel @Inject constructor(
 ) : ViewModel() {
     var isMapLoaded by mutableStateOf(false)
 
-    var stations by mutableStateOf<List<StationDto>>(emptyList())
-        private set
+    private val rawStations = MutableStateFlow<List<StationDto>>(emptyList())
+    private val cameraPosition = MutableStateFlow(
+        CameraPosition(
+            target = Position(DEFAULT_LONGITUDE, DEFAULT_LATITUDE),
+            zoom = DEFAULT_ZOOM
+        )
+    )
 
-    var lastCamera by mutableStateOf(CameraPosition(
-        target = Position(DEFAULT_LONGITUDE, DEFAULT_LATITUDE),
-        zoom = DEFAULT_ZOOM
-    ))
+    @OptIn(FlowPreview::class)
+    val visibleMarkers: StateFlow<List<MapMarkerUi>> = combine(
+        rawStations,
+        cameraPosition.debounce(100.milliseconds)
+    ) { stations, camera ->
+        MapClustering.cluster(stations, camera.zoom)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun onCameraMoved(newPosition: CameraPosition) {
+        cameraPosition.value = newPosition
+    }
 
     fun loadStations() {
         viewModelScope.launch {
             try {
-                stations = stationsApi.stations()
+                rawStations.value = stationsApi.stations()
+                // map loading finished
+                isMapLoaded = true
             } catch (e: Exception) {
                 println("Failed to load stations: ${e.message}")
             }
@@ -87,11 +117,12 @@ fun MapLibreView(
 ) {
 
     val context = LocalContext.current
+    val visibleMarkers by viewModel.visibleMarkers.collectAsState()
 
     LaunchedEffect(viewModel.isMapLoaded) {
         val activity = context as? ComponentActivity ?: return@LaunchedEffect
         val style : SystemBarStyle
- 
+
         if (viewModel.isMapLoaded) {
             style = SystemBarStyle.light(
                 scrim = android.graphics.Color.TRANSPARENT,
@@ -107,8 +138,17 @@ fun MapLibreView(
         activity.enableEdgeToEdge(statusBarStyle = style)
     }
 
-    val camera = rememberCameraState(firstPosition = viewModel.lastCamera)
-    LaunchedEffect(camera.position) { viewModel.lastCamera = camera.position }
+    val camera = rememberCameraState(
+        firstPosition = CameraPosition(
+            target = Position(4.850000, 45.750000),
+            zoom = 13.0
+        )
+    )
+
+    LaunchedEffect(camera) {
+        snapshotFlow { camera.position }
+            .collect { viewModel.onCameraMoved(it) }
+    }
 
     Box(
         modifier = Modifier
@@ -119,22 +159,28 @@ fun MapLibreView(
             modifier = modifier,
             cameraState = camera,
             onMapLoadFinished = {
-                viewModel.isMapLoaded = true
                 viewModel.loadStations()
             },
             overlay = MapOverlay {
-                viewModel.stations.forEach { station ->
-                    val pos = Position(
-                        station.location.longitude,
-                        station.location.latitude
-                    )
-                    Box(
-                        modifier = Modifier
-                            .placedAt(pos, Alignment.Center)
-                            .size(16.dp)
-                            .clip(MaterialShapes.Burst.toShape())
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
+                visibleMarkers.forEach { marker ->
+                    key(marker.id) {
+                        when (marker) {
+                            is MapMarkerUi.SingleStation -> {
+                                StationBadge(
+                                    position = marker.position,
+                                    electricalBikes = marker.electricalBikes,
+                                    mechanicalBikes = marker.mechanicalBikes,
+                                    stands = marker.stands
+                                )
+                            }
+                            is MapMarkerUi.Cluster -> {
+                                ClusterBadge(
+                                    position = marker.position,
+                                    count = marker.count,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         )

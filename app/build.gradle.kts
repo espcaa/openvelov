@@ -50,6 +50,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.ui.text)
     // hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
