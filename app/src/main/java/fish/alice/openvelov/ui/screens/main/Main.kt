@@ -22,7 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import fish.alice.openvelov.utils.hasAllPermissions
-import fish.alice.openvelov.ui.maps.MapLibreView
+import fish.alice.openvelov.ui.maps.VelovMapView
 import fish.alice.openvelov.ui.navigation.MapTab
 import fish.alice.openvelov.ui.navigation.ProfileTab
 import fish.alice.openvelov.ui.navigation.TopLevelDestination
@@ -62,7 +62,7 @@ fun MainScreen(
         }
     )  {
         Box(Modifier.fillMaxSize()) {
-            MapLibreView(
+            VelovMapView(
                 modifier = Modifier.fillMaxSize(),
             )
 

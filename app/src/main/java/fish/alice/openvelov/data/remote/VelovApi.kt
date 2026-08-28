@@ -10,6 +10,10 @@ data class StationDto(
     val id: String,
     val number: Int,
     val contractName: String,
+    val connected: Boolean,
+    val connectionState: String? = null,
+    val maintenance: Boolean,
+    val active: Boolean,
     val name: String,
     val open: Boolean,
     val address: String? = null,
@@ -19,7 +23,9 @@ data class StationDto(
     val paymentTerminal: Boolean = false,
     val createdAt: String,
     val updatedAt: String,
+    val bonus: Boolean = false,
 )
+
 
 @Serializable
 data class CapacityDto(val main: Int, val overflow: Int)

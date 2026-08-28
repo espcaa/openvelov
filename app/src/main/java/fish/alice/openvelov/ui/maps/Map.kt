@@ -8,24 +8,29 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.toShape
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -36,8 +41,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fish.alice.openvelov.data.remote.StationDto
 import fish.alice.openvelov.data.remote.StationsApi
 import fish.alice.openvelov.ui.design.icons.LocationIcon
-import fish.alice.openvelov.ui.design.icons.MapFilledIcon
+import fish.alice.openvelov.ui.design.map.MapPin
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,18 +52,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.Feature.get
 import org.maplibre.compose.expressions.dsl.Feature.has
 import org.maplibre.compose.expressions.dsl.asString
-import org.maplibre.compose.expressions.dsl.coalesce
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToNumber
 import org.maplibre.compose.expressions.dsl.convertToString
 import org.maplibre.compose.expressions.dsl.format
+import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.not
+import org.maplibre.compose.expressions.dsl.offset
 import org.maplibre.compose.expressions.dsl.span
 import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.layers.CircleLayer
@@ -73,6 +84,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
@@ -92,6 +105,10 @@ class MapViewModel @Inject constructor(
 
     private val _rawStations = MutableStateFlow<List<StationDto>>(emptyList())
     val rawStations: StateFlow<List<StationDto>> = _rawStations.asStateFlow()
+    private val _geoJsonData = MutableStateFlow<GeoJsonData>(
+        GeoJsonData.JsonString("""{"type": "FeatureCollection", "features": []}""")
+    )
+    val geoJsonData: StateFlow<GeoJsonData> = _geoJsonData.asStateFlow()
 
     private val _cameraPosition = MutableStateFlow(
         CameraPosition(
@@ -99,7 +116,6 @@ class MapViewModel @Inject constructor(
             zoom = DEFAULT_ZOOM
         )
     )
-    val cameraPosition: StateFlow<CameraPosition> = _cameraPosition.asStateFlow()
 
     fun onCameraMoved(newPosition: CameraPosition) {
         _cameraPosition.value = newPosition
@@ -110,8 +126,12 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 Log.d("MapViewModel", "Loading stations from API...")
-                _rawStations.value = stationsApi.stations()
-                println("Loaded ${_rawStations.value.size} stations")
+                val fetchedStations = stationsApi.stations()
+                _rawStations.value = fetchedStations
+                val parsedGeoJson = withContext(Dispatchers.Default) {
+                    fetchedStations.toGeoJsonData()
+                }
+                _geoJsonData.value = parsedGeoJson
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -123,13 +143,27 @@ class MapViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, FlowPreview::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, FlowPreview::class,
+    ExperimentalMaterial3Api::class
+)
 @Composable
-fun MapLibreView(
+fun VelovMapView(
     modifier: Modifier = Modifier,
     viewModel: MapViewModel = hiltViewModel(),
+    scope: CoroutineScope = rememberCoroutineScope()
 ) {
     val stations by viewModel.rawStations.collectAsStateWithLifecycle()
+    val geoJsonData by viewModel.geoJsonData.collectAsStateWithLifecycle()
+
+    val stationIconCenter = MaterialTheme.colorScheme.primary
+    val stationIconOutside = MaterialTheme.colorScheme.background
+
+    val stationPainter = rememberVectorPainter(
+        image = MapPin(
+            centerColor = stationIconCenter,
+            pinColor = stationIconOutside
+        )
+    )
 
     val camera = rememberCameraState(
         firstPosition = CameraPosition(
@@ -137,6 +171,11 @@ fun MapLibreView(
             zoom = DEFAULT_ZOOM
         )
     )
+
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.PartiallyExpanded
+    )
+    var selectedStation by remember { mutableStateOf<StationDto?>(null) }
 
     val locationProvider = rememberDefaultLocationProvider()
     val orientationProvider =
@@ -146,10 +185,6 @@ fun MapLibreView(
             provider = locationProvider,
             orientationProvider = orientationProvider,
         )
-
-    val geoJsonData = remember(stations) {
-        stations.toGeoJsonData()
-    }
 
     var isTrackingLocation by remember { mutableStateOf(false) }
 
@@ -185,7 +220,7 @@ fun MapLibreView(
                     cluster = true,
                     clusterRadius = 50,
                     clusterMaxZoom = 14,
-                    synchronousUpdate = true
+                    synchronousUpdate = false
                 )
             )
 
@@ -201,7 +236,26 @@ fun MapLibreView(
                 ),
                 color = const(MaterialTheme.colorScheme.onBackground),
                 strokeColor = const(MaterialTheme.colorScheme.background),
-                strokeWidth = const(2.dp)
+                strokeWidth = const(2.dp),
+                onClick = { features ->
+                    val clusterId = features.firstOrNull()
+                        ?.properties?.get("cluster_id")?.jsonPrimitive?.int
+                    if (clusterId != null) {
+                        val target = (features.first().geometry as? Point)?.coordinates
+                            ?: return@CircleLayer ClickResult.Pass
+                        scope.launch {
+                            camera.animateTo(
+                                CameraPosition(
+                                    target = target,
+                                    zoom = camera.position.zoom + 2.0,
+                                )
+                            )
+                        }
+                        ClickResult.Consume
+                    } else {
+                        ClickResult.Pass
+                    }
+                }
             )
 
             SymbolLayer(
@@ -216,14 +270,37 @@ fun MapLibreView(
                 textIgnorePlacement = const(true),
             )
 
-            CircleLayer(
-                id = "stations-circle",
+            SymbolLayer(
+                id = "stations-icon",
                 source = stationsSource,
                 filter = !has("point_count"),
-                color = const(MaterialTheme.colorScheme.tertiary),
-                radius = const(14.dp),
-                strokeColor = const(MaterialTheme.colorScheme.onTertiary),
-                strokeWidth = const(2.dp),
+                iconImage = image(
+                    value = stationPainter,
+                    size = DpSize(48.dp, 48.dp)
+                ),
+                iconAllowOverlap = const(true),
+                iconIgnorePlacement = const(false),
+                onClick = { features ->
+                    val id = features.firstOrNull()
+                        ?.properties?.get("id")?.jsonPrimitive?.content
+                    val station = stations.firstOrNull { it.id == id }
+                    if (station != null) {
+                        selectedStation = station
+                        scope.launch {
+                            (features.first().geometry as? Point)?.coordinates?.let {
+                                camera.animateTo(
+                                    CameraPosition(
+                                        target = it,
+                                        zoom = 16.0,
+                                    )
+                                )
+                            }
+                        }
+                        ClickResult.Consume
+                    } else {
+                        ClickResult.Pass
+                    }
+                }
             )
 
             SymbolLayer(
@@ -231,9 +308,10 @@ fun MapLibreView(
                 source = stationsSource,
                 filter = !has("point_count"),
                 textField = format(span(get("label").asString())),
-                textFont = const(listOf("Noto Sans Regular")),
-                textColor = const(MaterialTheme.colorScheme.onTertiary),
-                textSize = const(12.sp),
+                textFont = const(listOf("Noto Sans Bold")),
+                textColor = const(MaterialTheme.colorScheme.background),
+                textSize = const(16.sp),
+                textOffset = offset(0f.em, (-0.3f).em),
                 textAllowOverlap = const(true),
                 textIgnorePlacement = const(true),
             )
@@ -275,6 +353,18 @@ fun MapLibreView(
                 contentDescription = "",
                 tint = if (isTrackingLocation) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
             )
+        }
+
+        selectedStation?.let { station ->
+            ModalBottomSheet(
+                onDismissRequest = { selectedStation = null },
+                sheetState = sheetState,
+            ) {
+                StationDetailsSheet(
+                    station = station,
+                    modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                )
+            }
         }
 
         if (!viewModel.isMapLoaded) {

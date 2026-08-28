@@ -1,16 +1,45 @@
 package fish.alice.openvelov.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+
+@OptIn(ExperimentalTextApi::class)
+val emphasizedTypography = FontFamily(
+    Font(
+        resId = fish.alice.openvelov.R.font.roboto,
+        variationSettings = FontVariation.Settings(
+            FontVariation.weight(400),
+            FontVariation.width(10f),
+            FontVariation.slant(-0f)
+        )
+    )
+)
 
 // Set of Material typography styles to start with
 val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
+    ),
+    displayLargeEmphasized = TextStyle(
+        fontFamily = emphasizedTypography,
+        fontWeight = FontWeight.Normal,
+        fontSize = 50.sp,
+        lineHeight = 55.sp,
+        letterSpacing = 0.sp
+    ),
+    bodyLargeEmphasized = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.ExtraBold,
         fontSize = 16.sp,
         lineHeight = 24.sp,
         letterSpacing = 0.5.sp

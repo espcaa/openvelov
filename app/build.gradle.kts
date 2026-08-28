@@ -74,7 +74,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     // wizzard
-    implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
@@ -95,5 +94,4 @@ dependencies {
     // maplibre
     runtimeOnly(libs.maplibre.compose.runtime.vulkan.android)
     implementation(libs.location.runtime.gms)
-
 }
