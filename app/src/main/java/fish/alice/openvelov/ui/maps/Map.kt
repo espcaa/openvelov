@@ -6,10 +6,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,15 +31,21 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.example.test.LocationFilledIcon
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fish.alice.openvelov.data.remote.StationDto
 import fish.alice.openvelov.data.remote.StationsApi
+import fish.alice.openvelov.ui.design.icons.LocationIcon
+import fish.alice.openvelov.ui.design.icons.MapFilledIcon
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.Feature.get
@@ -50,6 +61,12 @@ import org.maplibre.compose.expressions.dsl.span
 import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.location.LocationPuck
+import org.maplibre.compose.location.LocationTrackingEffect
+import org.maplibre.compose.location.mostAccurateBearing
+import org.maplibre.compose.location.rememberDefaultLocationProvider
+import org.maplibre.compose.location.rememberDefaultOrientationProvider
+import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.sources.GeoJsonData
@@ -58,6 +75,7 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 private const val DEFAULT_LATITUDE = 45.750000
 private const val DEFAULT_LONGITUDE = 4.850000
@@ -105,7 +123,7 @@ class MapViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, FlowPreview::class)
 @Composable
 fun MapLibreView(
     modifier: Modifier = Modifier,
@@ -120,14 +138,35 @@ fun MapLibreView(
         )
     )
 
+    val locationProvider = rememberDefaultLocationProvider()
+    val orientationProvider =
+        rememberDefaultOrientationProvider()
+    val locationState =
+        rememberLocationState(
+            provider = locationProvider,
+            orientationProvider = orientationProvider,
+        )
+
+    val geoJsonData = remember(stations) {
+        stations.toGeoJsonData()
+    }
+
+    var isTrackingLocation by remember { mutableStateOf(false) }
+
+    LaunchedEffect(camera) {
+        snapshotFlow { camera.isCameraMoving }
+            .collect { isMoving ->
+                if (isMoving && camera.moveReason == CameraMoveReason.GESTURE) {
+                    isTrackingLocation = false
+                }
+            }
+    }
+
     LaunchedEffect(camera) {
         snapshotFlow { camera.position }
             .distinctUntilChanged()
+            .debounce(300.milliseconds)
             .collect { viewModel.onCameraMoved(it) }
-    }
-
-    val geoJsonString = remember(stations) {
-        stations.toGeoJson()
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -141,16 +180,14 @@ fun MapLibreView(
             },
         ) {
             val stationsSource = rememberGeoJsonSource(
-                data = GeoJsonData.JsonString(geoJsonString),
-                options = GeoJsonOptions(cluster = true,clusterRadius = 50,clusterMaxZoom = 14, synchronousUpdate = true)
-            )
-
-            LaunchedEffect(geoJsonString) {
-                Log.d(
-                    "MapLibreView",
-                    "geoJson len=${geoJsonString.length} stations=${stations.size}"
+                data = geoJsonData,
+                options = GeoJsonOptions(
+                    cluster = true,
+                    clusterRadius = 50,
+                    clusterMaxZoom = 14,
+                    synchronousUpdate = true
                 )
-            }
+            )
 
             CircleLayer(
                 id = "clusters",
@@ -199,6 +236,44 @@ fun MapLibreView(
                 textSize = const(12.sp),
                 textAllowOverlap = const(true),
                 textIgnorePlacement = const(true),
+            )
+
+            LocationPuck(
+                idPrefix = "user",
+                location = locationState.location,
+                bearing = locationState.mostAccurateBearing(),
+                cameraState = camera,
+            )
+
+            LocationTrackingEffect(
+                locationState = locationState,
+                enabled = isTrackingLocation
+            ) {
+                camera.animateTo(
+                    CameraPosition(
+                        target = currentLocation.position.value,
+                        zoom = 15.0
+                    )
+                )
+            }
+
+        }
+
+        FloatingActionButton(
+            onClick = {
+                isTrackingLocation = !isTrackingLocation
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            shape = MaterialTheme.shapes.largeIncreased,
+            containerColor = if (isTrackingLocation) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            contentColor = if (isTrackingLocation) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+        ) {
+            Icon(
+                imageVector = if (isTrackingLocation) LocationFilledIcon else LocationIcon,
+                contentDescription = "",
+                tint = if (isTrackingLocation) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
             )
         }
 

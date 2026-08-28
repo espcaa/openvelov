@@ -48,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import fish.alice.openvelov.R
+import fish.alice.openvelov.ui.design.icons.ArrowBackIcon
 
 sealed interface LoginUiState {
     data object Idle: LoginUiState
@@ -127,7 +128,7 @@ fun LoginScreen(
                                 }
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.outline_arrow_back_24),
+                                    imageVector = ArrowBackIcon,
                                     contentDescription = "Back",
                                 )
                             }

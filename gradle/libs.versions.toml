@@ -12,19 +12,22 @@ ksp = "2.3.10"
 hilt = "2.60.1"
 hiltNavigationCompose = "1.4.0"
 composeBom = "2026.08.00"
-navigationCompose = "2.9.8"
+locationRuntimeGms = "0.15.0"
+navigationCompose = "2.10.0"
 lifecycle = "2.11.0"
 retrofit = "3.0.0"
 okhttp = "5.5.0"
 kotlinxSerialization = "1.11.0"
 datastore = "1.2.1"
 maplibre = "0.15.0"
-material3 = "1.5.0-alpha26"
+material3 = "1.5.0-alpha27"
 uiText = "1.12.0"
 
 [libraries]
 androidx-material3-adaptive-navigation-suite = { module = "androidx.compose.material3:material3-adaptive-navigation-suite" }
-maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "0.15.0" }
+location-runtime-gms = { module = "org.maplibre.compose:location-runtime-gms", version.ref = "locationRuntimeGms" }
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibre" }
+maplibre-compose-runtime-vulkan-android = { module = "org.maplibre.compose:maplibre-compose-runtime-vulkan-android", version.ref = "maplibre" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

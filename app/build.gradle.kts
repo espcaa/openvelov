@@ -34,6 +34,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("debug")
             optimization {
                 enable = false
             }
@@ -90,5 +91,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.maplibre.compose)
     implementation(libs.androidx.material3.adaptive.navigation.suite)
-    runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-android:0.15.0")
+
+    // maplibre
+    runtimeOnly(libs.maplibre.compose.runtime.vulkan.android)
+    implementation(libs.location.runtime.gms)
+
 }

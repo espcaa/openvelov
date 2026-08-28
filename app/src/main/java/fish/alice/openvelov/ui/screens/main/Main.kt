@@ -52,7 +52,7 @@ fun MainScreen(
                     onClick = { tabNav.navigateToTab(dest) },
                     icon = {
                         Icon(
-                            painter = painterResource(if (selected) dest.selectedIcon else dest.icon),
+                            imageVector = if (selected) dest.selectedIcon else dest.icon,
                             contentDescription = null,
                         )
                     },
