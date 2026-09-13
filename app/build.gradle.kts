@@ -1,5 +1,10 @@
 import java.util.Properties
 
+val localProps = Properties().apply {
+    rootProject.file("local.properties").inputStream().use { load(it) }
+}
+val hasReleaseKeystore = localProps.getProperty("releaseStoreFile") != null
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -24,19 +29,31 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val props = Properties().apply {
-            rootProject.file("local.properties").inputStream().use { load(it) }
-        }
-        buildConfigField("String", "VELOV_CLIENT_KEY", "\"${props.getProperty("velovClientKey")}\"")
-        buildConfigField("String", "VELOV_REFRESH_TOKEN", "\"${props.getProperty("velovRefreshToken")}\"")
+        buildConfigField("String", "VELOV_CLIENT_KEY", "\"${localProps.getProperty("velovClientKey")}\"")
+        buildConfigField("String", "VELOV_REFRESH_TOKEN", "\"${localProps.getProperty("velovRefreshToken")}\"")
 
+    }
+
+    signingConfigs {
+        create("release") {
+            if (hasReleaseKeystore) {
+                storeFile = rootProject.file(localProps.getProperty("releaseStoreFile")!!)
+                storePassword = localProps.getProperty("releaseStorePassword")
+                keyAlias = localProps.getProperty("releaseKeyAlias")
+                keyPassword = localProps.getProperty("releaseKeyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
             optimization {
-                enable = false
+                enable = true
             }
         }
     }

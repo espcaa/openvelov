@@ -166,35 +166,37 @@ fun LoginScreen(
                 )
             }
         } else {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(text = "Vélo'v", style = MaterialTheme.typography.headlineMedium)
+            Scaffold() { innerPadding ->
+                Column(
+                    modifier = Modifier.padding(innerPadding).fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(text = "Sign-in with Vélo'v", style = MaterialTheme.typography.headlineMedium)
 
-                when (val s = state) {
-                    is LoginUiState.Loading -> CircularProgressIndicator(Modifier.padding(top = 24.dp))
-                    is LoginUiState.Error -> Text(
-                        text = s.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 16.dp),
-                    )
+                    when (val s = state) {
+                        is LoginUiState.Loading -> CircularProgressIndicator(Modifier.padding(top = 24.dp))
+                        is LoginUiState.Error -> Text(
+                            text = s.message,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
 
-                    else -> {}
+                        else -> {}
+                    }
+
+                    Button(
+                        enabled = state !is LoginUiState.Loading,
+                        modifier = Modifier.padding(top = 24.dp),
+                        onClick = {
+                            scope.launch {
+                                runCatching { viewModel.buildAuthUrl() }
+                                    .onSuccess { authUrl = it }
+                                    .onFailure { viewModel.onError(it) }
+                            }
+                        },
+                    ) { Text("Sign in") }
                 }
-
-                Button(
-                    enabled = state !is LoginUiState.Loading,
-                    modifier = Modifier.padding(top = 24.dp),
-                    onClick = {
-                        scope.launch {
-                            runCatching { viewModel.buildAuthUrl() }
-                                .onSuccess { authUrl = it }
-                                .onFailure { viewModel.onError(it) }
-                        }
-                    },
-                ) { Text("Sign in") }
             }
         }
     }
