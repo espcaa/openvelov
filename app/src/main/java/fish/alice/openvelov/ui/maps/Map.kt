@@ -155,8 +155,8 @@ fun VelovMapView(
     val stations by viewModel.rawStations.collectAsStateWithLifecycle()
     val geoJsonData by viewModel.geoJsonData.collectAsStateWithLifecycle()
 
-    val stationIconCenter = MaterialTheme.colorScheme.primary
-    val stationIconOutside = MaterialTheme.colorScheme.background
+    val stationIconCenter = MaterialTheme.colorScheme.primaryFixed
+    val stationIconOutside = MaterialTheme.colorScheme.onPrimaryFixed
 
     val stationPainter = rememberVectorPainter(
         image = MapPin(
@@ -234,9 +234,9 @@ fun VelovMapView(
                     25.0 to const(22.dp),
                     100.0 to const(30.dp),
                 ),
-                color = const(MaterialTheme.colorScheme.onBackground),
-                strokeColor = const(MaterialTheme.colorScheme.background),
-                strokeWidth = const(2.dp),
+                color = const(MaterialTheme.colorScheme.secondaryFixed),
+                strokeColor = const(MaterialTheme.colorScheme.onSecondaryFixed),
+                strokeWidth = const(0.dp),
                 onClick = { features ->
                     val clusterId = features.firstOrNull()
                         ?.properties?.get("cluster_id")?.jsonPrimitive?.int
@@ -264,7 +264,7 @@ fun VelovMapView(
                 filter = has("point_count"),
                 textField = format(span(get("point_count_abbreviated").convertToString())),
                 textFont = const(listOf("Noto Sans Bold")),
-                textColor = const(MaterialTheme.colorScheme.background),
+                textColor = const(MaterialTheme.colorScheme.onSecondaryFixed),
                 textSize = const(13.sp),
                 textAllowOverlap = const(true),
                 textIgnorePlacement = const(true),
@@ -309,7 +309,7 @@ fun VelovMapView(
                 filter = !has("point_count"),
                 textField = format(span(get("label").asString())),
                 textFont = const(listOf("Noto Sans Bold")),
-                textColor = const(MaterialTheme.colorScheme.background),
+                textColor = const(MaterialTheme.colorScheme.onPrimaryFixed),
                 textSize = const(16.sp),
                 textOffset = offset(0f.em, (-0.3f).em),
                 textAllowOverlap = const(true),
@@ -362,7 +362,6 @@ fun VelovMapView(
             ) {
                 StationDetailsSheet(
                     station = station,
-                    modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp)
                 )
             }
         }

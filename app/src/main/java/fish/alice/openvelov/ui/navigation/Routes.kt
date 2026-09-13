@@ -15,3 +15,5 @@ import kotlinx.serialization.Serializable
 @Serializable object MapTab
 
 @Serializable object ProfileTab
+
+@Serializable object TripsTab

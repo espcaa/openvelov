@@ -51,7 +51,37 @@ data class PositionDto(
 )
 
 @Serializable
-class BikeDto
+data class BikeDto(
+    val id: String,
+    val number: Int,
+    val contractName: String,
+    val type: String,
+    val frameId: String,
+    val stationNumber: Int,
+    val standNumber: Int,
+    val status: String,
+    val hasBattery: Boolean,
+    val battery: BatteryDto? = null,
+    val hasLock: Boolean,
+    val rating: RatingDto? = null,
+    val checked: Boolean,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+@Serializable
+data class BatteryDto(
+    val percentage: Int,
+    val type: String,
+    val level: Int,
+)
+
+@Serializable
+data class RatingDto(
+    val value: Double,
+    val count: Int,
+    val lastRatingDateTime: String? = null,
+)
 
 interface BikesApi {
     @Headers("Accept: application/vnd.bikes.v2+json")

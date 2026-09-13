@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">openvelov</string>
-
     <string name="tab_map">Map</string>
     <string name="tab_profile">Profile</string>
+    <string name="tab_trips">Trips</string>
+    <string name="rating_number">ratings</string>
 </resources>

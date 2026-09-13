@@ -26,6 +26,7 @@ import fish.alice.openvelov.ui.maps.VelovMapView
 import fish.alice.openvelov.ui.navigation.MapTab
 import fish.alice.openvelov.ui.navigation.ProfileTab
 import fish.alice.openvelov.ui.navigation.TopLevelDestination
+import fish.alice.openvelov.ui.navigation.TripsTab
 import fish.alice.openvelov.ui.navigation.navigateToTab
 
 @Composable
@@ -74,6 +75,7 @@ fun MainScreen(
             ) {
                 composable<MapTab> { }
                 composable<ProfileTab> { ProfileScreen() }
+                composable<TripsTab> { TripsScreen() }
             }
         }
     }
