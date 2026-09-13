@@ -3,7 +3,10 @@ import java.util.Properties
 val localProps = Properties().apply {
     rootProject.file("local.properties").inputStream().use { load(it) }
 }
-val hasReleaseKeystore = localProps.getProperty("releaseStoreFile") != null
+val hasReleaseKeystore = localProps.getProperty("releaseStoreFile")?.let { rootProject.file(it).exists() } == true &&
+    !localProps.getProperty("releaseStorePassword").isNullOrBlank() &&
+    !localProps.getProperty("releaseKeyAlias").isNullOrBlank() &&
+    !localProps.getProperty("releaseKeyPassword").isNullOrBlank()
 
 plugins {
     alias(libs.plugins.android.application)
