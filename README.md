@@ -4,8 +4,6 @@ an open source material 3 expressive android app for velov bike sharing system i
 \
 \
 /!\ using a third party client to access velov data is against velov terms of service. use this app at your own risk.
-\
-\
 
 ## features
 
